@@ -1,0 +1,24 @@
+{
+  "config": {
+    "ambiguity_shortens_ladder": true,
+    "contact_delay_hours": 12.0,
+    "contact_on_expiry": true,
+    "contact_on_hard_decline": true,
+    "hitl_amount_threshold_paise": 500000,
+    "limit_exceeded_delay_hours": 48.0,
+    "max_charge_attempts": 3,
+    "max_contact_actions": 2,
+    "payday_alignment": true,
+    "payday_buffer_hours": 8.0,
+    "payday_max_wait_hours": 240.0,
+    "recovery_window_hours": 720.0,
+    "retry_min_propensity": 0.15,
+    "soft_retry_delays_hours": [
+      48.0,
+      96.0,
+      168.0
+    ],
+    "technical_retry_delay_hours": 36.0
+  },
+  "fingerprint": "4ed35761c28b921f2c12694202b7dca13de47ac7984564cdc93263db20a020a3"
+}

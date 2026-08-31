@@ -1,0 +1,29 @@
+{
+  "generator_version": "1.0.0",
+  "seed": 42,
+  "created_at": "2026-08-31T08:40:52.206591+05:30",
+  "n_total": 250,
+  "n_train": 175,
+  "n_test": 75,
+  "class_mix": {
+    "EXPIRY_CARD_EXPIRED": 0.116,
+    "EXPIRY_MANDATE_EXPIRED": 0.032,
+    "HARD_DO_NOT_HONOR": 0.188,
+    "HARD_MANDATE_REVOKED": 0.064,
+    "HARD_RISK_FLAGGED": 0.048,
+    "SOFT_INSUFFICIENT_FUNDS": 0.312,
+    "SOFT_ISSUER_TECHNICAL": 0.1,
+    "SOFT_LIMIT_EXCEEDED": 0.048,
+    "UNKNOWN": 0.092
+  },
+  "family_mix": {
+    "soft": 0.46,
+    "hard": 0.3,
+    "expiry": 0.148,
+    "unknown": 0.092
+  },
+  "sha256": {
+    "train.jsonl": "3152643e3d71599be6da39aec191215177a33d8fd77c5f71b671e9fb8d549152",
+    "test.jsonl": "001d7c1c3d85286203fbce32ac9103059cc514a8b41a9ca102b5be60b6360cb9"
+  }
+}
