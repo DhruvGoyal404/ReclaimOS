@@ -114,13 +114,15 @@ def _make_handler(state: ReceiverState) -> type[BaseHTTPRequestHandler]:
         """Handles POST /webhook/razorpay only. Everything else gets 404."""
 
         def do_POST(self) -> None:
+            # Always read the request body, even on paths we reject: on Windows,
+            # replying before draining the body makes the client socket abort
+            # (WinError 10053) instead of reading our response cleanly.
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
             if self.path.rstrip("/") != "/webhook/razorpay":
                 self.send_response(HTTPStatus.NOT_FOUND)
                 self.end_headers()
                 return
-
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length)
 
             # Capture headers for the event-id question.
             captured_headers: dict[str, str] = {}
