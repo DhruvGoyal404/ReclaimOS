@@ -1,0 +1,90 @@
+{
+  "fields_missing": [],
+  "fields_seen": [],
+  "matched": [],
+  "modelled_tuples": [
+    [
+      "BAD_REQUEST_ERROR",
+      "bank",
+      "payment_authorization",
+      "payment_failed"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "business",
+      "payment_authentication",
+      "payment_risk_check_failed"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "customer",
+      "payment_authorization",
+      "insufficient_funds"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "customer",
+      "payment_initiation",
+      "card_expired"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "customer",
+      "payment_initiation",
+      "mandate_expired"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "customer",
+      "payment_initiation",
+      "mandate_revoked"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "issuer",
+      "payment_authorization",
+      "card_reported_lost_or_stolen"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "issuer",
+      "payment_authorization",
+      "debit_limit_exceeded"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "issuer",
+      "payment_authorization",
+      "do_not_honor"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "issuer",
+      "payment_authorization",
+      "payment_limit_exceeded"
+    ],
+    [
+      "GATEWAY_ERROR",
+      "gateway",
+      "payment_authorization",
+      "gateway_technical_error"
+    ],
+    [
+      "GATEWAY_ERROR",
+      "gateway",
+      "payment_response",
+      "server_error"
+    ],
+    [
+      "GATEWAY_ERROR",
+      "issuer",
+      "payment_authorization",
+      "issuer_down"
+    ]
+  ],
+  "notes": [
+    "No failed payment has been captured yet. A payment link paid with a failing test card produces one; see docs/live-slice.md."
+  ],
+  "observed": [],
+  "unmodelled": []
+}

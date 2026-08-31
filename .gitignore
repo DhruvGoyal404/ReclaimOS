@@ -17,6 +17,9 @@ venv/
 htmlcov/
 
 # Generated data & run artifacts
+# ...but data/live/ IS committed: the recorded transcript is the evidence the
+# live slice happened at all. It contains test-mode ids only, scrubbed.
+!data/live/
 # SQLite databases are local state, and WAL/SHM sidecars come with them.
 data/*.db
 data/*.db-wal

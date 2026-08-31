@@ -19,6 +19,9 @@ dependencies = [
 # the path CI and a first clone both take. Keeping it optional means the core
 # install needs no credentials and no network.
 llm = ["anthropic>=0.40"]
+# The live Razorpay test-mode slice. Optional for the same reason: the sealed
+# simulated batch is the primary result and runs with no credentials at all.
+live = ["razorpay>=1.4"]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=5.0",

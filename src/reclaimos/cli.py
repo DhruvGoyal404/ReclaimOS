@@ -347,5 +347,192 @@ def ledger_demo(
     console.print(f"[dim]{db.path}[/] — now run: reclaimos ledger verify")
 
 
+# ---------------------------------------------------------------------------
+# The live Razorpay test-mode slice
+# ---------------------------------------------------------------------------
+
+live_app = typer.Typer(
+    name="live",
+    help="Recorded Razorpay test-mode slice — proof the integration is real.",
+    no_args_is_help=True,
+)
+app.add_typer(live_app)
+
+#: Endpoints worth knowing the status of. A 401 on one while others return 200 is
+#: a provisioning fact about the account, not a broken key.
+PROBE_PATHS = (
+    "/payments",
+    "/orders",
+    "/customers",
+    "/payment_links",
+    "/plans",
+    "/subscriptions",
+    "/settlements",
+)
+
+
+@live_app.command("probe")
+def live_probe() -> None:
+    """Record which parts of the Razorpay API this test account can reach."""
+    from reclaimos.live import RazorpayLiveClient
+
+    client = RazorpayLiveClient()
+    results = client.probe_endpoints(PROBE_PATHS)
+
+    table = Table(title=f"Razorpay test mode · {client.key_id[:12]}…", header_style="bold")
+    table.add_column("endpoint")
+    table.add_column("status", justify="right")
+    table.add_column("meaning")
+    for path, status in results.items():
+        meaning = {
+            200: "[green]reachable[/]",
+            401: "[yellow]not provisioned on this account[/]",
+        }.get(status, "[red]unexpected[/]")
+        table.add_row(path, str(status), meaning)
+    console.print(table)
+    console.print(f"[dim]recorded to {client.recorder.path}[/]")
+
+
+@live_app.command("seed")
+def live_seed(
+    amount_paise: Annotated[
+        int, typer.Option("--amount-paise", help="Charge amount, in paise.")
+    ] = 49_900,
+) -> None:
+    """Create the test-mode objects the slice needs, with notifications OFF.
+
+    The payment link is not a prop: it is the SEND_PAYMENT_LINK action from the
+    policy engine's catalogue, executed against the real API.
+
+    Notifications are disabled on purpose. A test run must not send an SMS or an
+    email to anybody, and "it was only test mode" is not a defence anyone accepts
+    after the fact.
+    """
+    from reclaimos.live import RazorpayLiveClient, write_json
+
+    client = RazorpayLiveClient()
+
+    _, customer = client.post(
+        "/customers",
+        {
+            "name": "ReclaimOS Test Customer",
+            "email": "reclaimos-test@example.com",
+            "fail_existing": "0",
+        },
+        note="live slice: subject customer",
+    )
+    _, order = client.post(
+        "/orders",
+        {
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": f"reclaimos-live-{amount_paise}",
+            "notes": {"source": "reclaimos-live-slice"},
+        },
+        note="live slice: order for a recoverable charge",
+    )
+    _, link = client.post(
+        "/payment_links",
+        {
+            "amount": amount_paise,
+            "currency": "INR",
+            "description": "ReclaimOS recovery test",
+            "customer": {
+                "name": "ReclaimOS Test Customer",
+                "email": "reclaimos-test@example.com",
+            },
+            "notify": {"sms": False, "email": False},
+            "reminder_enable": False,
+            "notes": {"source": "reclaimos-live-slice"},
+        },
+        note="live slice: SEND_PAYMENT_LINK executed against the real API",
+    )
+
+    table = Table(title="Live test-mode objects", header_style="bold")
+    table.add_column("object")
+    table.add_column("id")
+    table.add_row("customer", str(customer.get("id")))
+    table.add_row("order", str(order.get("id")))
+    table.add_row("payment link", str(link.get("id")))
+    console.print(table)
+    console.print(f"[bold]pay it here:[/] {link.get('short_url')}")
+    console.print(
+        "[dim]Use a FAILING test card so we capture a real error envelope, then run: "
+        "reclaimos live reconcile[/]"
+    )
+    write_json(
+        "seeded.json",
+        {
+            "customer_id": customer.get("id"),
+            "order_id": order.get("id"),
+            "payment_link_id": link.get("id"),
+            "payment_link_url": link.get("short_url"),
+            "amount_paise": amount_paise,
+        },
+    )
+
+
+@live_app.command("reconcile")
+def live_reconcile() -> None:
+    """Compare live error envelopes against our modelled decline taxonomy.
+
+    A mismatch is the point of the exercise, not a failure of it.
+    """
+    from reclaimos.live import RazorpayLiveClient, write_json
+    from reclaimos.live.reconcile import observations_from_payments, reconcile
+
+    client = RazorpayLiveClient()
+    _, body = client.get("/payments", {"count": 100}, note="reconciliation: fetch envelopes")
+    payments = body.get("items", []) if isinstance(body, dict) else []
+
+    report = reconcile(observations_from_payments(payments))
+    path = write_json("reconciliation.json", report.model_dump(mode="json"))
+
+    console.print(f"[bold]{report.summary()}[/]")
+    if report.observed:
+        table = Table(title="Observed error envelopes", header_style="bold")
+        for column in ("payment", "code", "source", "step", "reason"):
+            table.add_column(column)
+        for observation in report.observed:
+            table.add_row(
+                observation.payment_id or "—",
+                observation.error_code or "—",
+                observation.error_source or "—",
+                observation.error_step or "—",
+                observation.error_reason or "—",
+            )
+        console.print(table)
+    if report.unmodelled:
+        console.print("[bold yellow]tuples our taxonomy does not contain:[/]")
+        for tuple_ in report.unmodelled:
+            console.print(f"  {tuple_}")
+    for note in report.notes:
+        console.print(f"[dim]· {note}[/]")
+    console.print(f"[bold green]wrote[/] {path}")
+
+
+@live_app.command("transcript")
+def live_transcript() -> None:
+    """Summarise the recorded transcript — the evidence the slice happened."""
+    from reclaimos.live import TRANSCRIPT, read_transcript
+
+    calls = read_transcript()
+    if not calls:
+        console.print("[yellow]no calls recorded yet[/] — run: reclaimos live probe")
+        raise typer.Exit(code=1)
+
+    table = Table(title=f"Live transcript · {len(calls)} call(s)", header_style="bold")
+    table.add_column("call")
+    table.add_column("n", justify="right")
+    counts: dict[str, int] = {}
+    for call in calls:
+        key = f"{call.method} {call.path.split('?')[0]} -> {call.status}"
+        counts[key] = counts.get(key, 0) + 1
+    for key, count in sorted(counts.items()):
+        table.add_row(key, str(count))
+    console.print(table)
+    console.print(f"[dim]{TRANSCRIPT}[/]")
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

@@ -488,3 +488,49 @@ package, and the dependency runs one way: eval → policy.
 in a fresh interpreter, one at a time. Slower than an in-process check and that is
 the point — an in-process check would share the same already-imported modules and
 reproduce exactly the blind spot being guarded against.
+
+---
+
+## 2026-09-01 — the API the whole loop was designed around returns 401
+
+**What broke.** The first authenticated probe of the live test account:
+
+```
+GET /payments      -> 200      GET /customers     -> 200
+GET /orders        -> 200      GET /payment_links -> 200
+GET /plans         -> 401  {"error":"Unauthorized"}
+GET /subscriptions -> 401  {"error":"Unauthorized"}
+```
+
+Same key, same request signature, five endpoints fine and two refused.
+
+**Diagnosis.** Not an authentication failure. Two details settle it: the key works
+everywhere else on the same call, and the error body is a bare
+`{"error":"Unauthorized"}` rather than Razorpay's usual
+`{"error":{"code":…,"description":…}}` envelope — the shape returned for a product
+the account is not provisioned for. Subscriptions is a gated product.
+
+**Why it matters more than it looks.** ReclaimOS is a *subscription* recovery
+agent. The Subscriptions "Charge this now" success/failure simulation is the exact
+mechanism cited in CLAUDE.md as the reason this problem was drivable in test mode
+at all. The one API the design leaned on is the one the account cannot reach.
+
+**What it does not change.** The 200+ record result was always simulated and
+always said so ([SIMULATION.md](../SIMULATION.md)); the live slice was only ever
+proof-of-integration. So this narrows the live claim rather than invalidating the
+headline number. But it narrows it, and the honest move is to say by how much
+instead of quietly redefining what the slice was for.
+
+**How the SDK hid it.** `razorpay.Client().plan.all()` raised `ServerError:` with
+an empty message. No status code, no body. Dropping to raw `requests` for the
+probe is what turned an unreadable exception into a diagnosis, and is why
+`live/client.py` uses `requests` rather than the SDK for reads — the status and
+body are the evidence the slice exists to collect, so they must not be swallowed.
+
+**Resolution, in progress.** Asked for Subscriptions to be enabled on the account.
+If it can be, the slice proceeds as designed. If it cannot, the slice proves real
+authentication, real customer and order creation, a real payment link created
+through the same `SEND_PAYMENT_LINK` action the policy engine chooses, real error
+envelopes, and real signature-verified webhook delivery — and we state plainly
+that it does not prove a live recurring charge. Full detail in
+[live-slice.md](live-slice.md).
