@@ -343,3 +343,36 @@ def test_the_defaults_are_the_frozen_values() -> None:
     """No tuning happened. If a default ever diverges from the frozen file, the
     a-priori claim in EVAL.md stops being true."""
     assert AgentConfig() == AgentConfig.load()
+
+
+def test_the_agent_never_retries_a_pre_authorisation_rejection() -> None:
+    """The live-observed class, run through the real policy.
+
+    A merchant-configuration refusal looks superficially like any other declined
+    charge, and a naive ladder would spend three attempts on it. This is the
+    project's whole thesis in one live example: the classification decides whether
+    the attempts are spent, and this one must map to stop.
+    """
+    from reclaimos.domain import PaymentAttempt
+
+    attempt = PaymentAttempt(
+        attempt_no=1,
+        occurred_at=datetime(2026, 9, 1, 3, 0, tzinfo=IST),
+        amount_paise=49_900,
+        error_code="BAD_REQUEST_ERROR",
+        error_source="business",
+        error_step="payment_initiation",
+        error_reason="international_transaction_not_allowed",
+    )
+    record = make_record().model_copy(update={"failed_attempt": attempt})
+    agent = _agent()
+
+    for charges in range(4):
+        for contacts in range(3):
+            decision = agent.decide(
+                _state(record, charge_attempts=charges, contact_actions=contacts)
+            )
+            assert decision.action is not ActionType.RETRY_CHARGE, (charges, contacts)
+
+    # The subscription is still reachable -- just not by retrying that instrument.
+    assert agent.decide(_state(record)).action is ActionType.SEND_PAYMENT_LINK

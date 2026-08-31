@@ -41,6 +41,11 @@ BASE_PROPENSITY: Final[dict[DeclineClass, float]] = {
     DeclineClass.HARD_DO_NOT_HONOR: 0.05,
     DeclineClass.HARD_RISK_FLAGGED: 0.02,
     DeclineClass.HARD_MANDATE_REVOKED: 0.01,
+    # Merchant configuration refused the instrument before any issuer saw it.
+    # Scored below the retry floor so no charge attempt is ever spent; the
+    # subscription is still reachable, but only by asking the customer for a
+    # different instrument, which is the outreach path rather than this score.
+    DeclineClass.HARD_NOT_PERMITTED: 0.02,
     # Expiry is recoverable, but only through an instrument-update or
     # re-authorisation path. Medium, and never by retrying the dead instrument.
     DeclineClass.EXPIRY_CARD_EXPIRED: 0.35,

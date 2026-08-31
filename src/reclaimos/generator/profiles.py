@@ -61,6 +61,7 @@ CLASS_WEIGHTS_BY_METHOD: Final[dict[Method, dict[DeclineClass, float]]] = {
         DeclineClass.SOFT_LIMIT_EXCEEDED: 0.04,
         DeclineClass.HARD_DO_NOT_HONOR: 0.20,
         DeclineClass.HARD_RISK_FLAGGED: 0.09,
+        DeclineClass.HARD_NOT_PERMITTED: 0.00,  # live-observed only; never simulated
         DeclineClass.HARD_MANDATE_REVOKED: 0.02,
         DeclineClass.EXPIRY_CARD_EXPIRED: 0.22,
         DeclineClass.EXPIRY_MANDATE_EXPIRED: 0.02,
@@ -72,6 +73,7 @@ CLASS_WEIGHTS_BY_METHOD: Final[dict[Method, dict[DeclineClass, float]]] = {
         DeclineClass.SOFT_LIMIT_EXCEEDED: 0.06,
         DeclineClass.HARD_DO_NOT_HONOR: 0.14,
         DeclineClass.HARD_RISK_FLAGGED: 0.04,
+        DeclineClass.HARD_NOT_PERMITTED: 0.00,  # live-observed only; never simulated
         DeclineClass.HARD_MANDATE_REVOKED: 0.12,
         DeclineClass.EXPIRY_CARD_EXPIRED: 0.00,  # structurally impossible
         DeclineClass.EXPIRY_MANDATE_EXPIRED: 0.06,
@@ -83,6 +85,7 @@ CLASS_WEIGHTS_BY_METHOD: Final[dict[Method, dict[DeclineClass, float]]] = {
         DeclineClass.SOFT_LIMIT_EXCEEDED: 0.03,
         DeclineClass.HARD_DO_NOT_HONOR: 0.16,
         DeclineClass.HARD_RISK_FLAGGED: 0.03,
+        DeclineClass.HARD_NOT_PERMITTED: 0.00,  # live-observed only; never simulated
         DeclineClass.HARD_MANDATE_REVOKED: 0.13,
         DeclineClass.EXPIRY_CARD_EXPIRED: 0.00,  # structurally impossible
         DeclineClass.EXPIRY_MANDATE_EXPIRED: 0.12,
@@ -90,6 +93,12 @@ CLASS_WEIGHTS_BY_METHOD: Final[dict[Method, dict[DeclineClass, float]]] = {
     },
 }
 
+#: ``HARD_NOT_PERMITTED`` carries weight 0.00 on every rail, deliberately. It was
+#: observed live rather than modelled, and the simulated population must stay
+#: byte-identical to the one the sealed held-out result was measured on --
+#: ``sample_decline_class`` filters ``v > 0``, so the class is never drawn. The
+#: classifier can still recognise it if it arrives from the real API.
+#:
 #: Target aggregate bands, asserted by ``tests/test_generator.py``. These are the
 #: bands the brief calls for; the per-method tables above must roll up into them.
 AGGREGATE_BANDS: Final[dict[str, tuple[float, float]]] = {

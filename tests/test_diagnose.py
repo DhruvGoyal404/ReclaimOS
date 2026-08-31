@@ -289,3 +289,78 @@ def test_mandate_expiry_is_read_from_the_record_not_guessed() -> None:
     record = make_record(mandate_expiry_offset_days=-1)
     assert record.mandate.expiry < record.charge_at
     assert record.mandate.expiry == record.charge_at - timedelta(days=1)
+
+
+# --- the live-observed class --------------------------------------------------
+
+LIVE_NOT_PERMITTED = PaymentAttempt(
+    attempt_no=1,
+    occurred_at=datetime(2026, 9, 1, 3, 0, tzinfo=IST),
+    amount_paise=49_900,
+    error_code="BAD_REQUEST_ERROR",
+    error_source="business",
+    error_step="payment_initiation",
+    error_reason="international_transaction_not_allowed",
+    error_description="International cards are not enabled for this merchant account.",
+)
+
+
+def test_the_live_observed_tuple_classifies_as_non_retryable() -> None:
+    """Observed on real Razorpay test mode, 2026-09-01, on two payments.
+
+    `source=business` at `step=payment_initiation` is a pre-authorisation
+    rejection: the merchant's own configuration refused the instrument before any
+    issuer was consulted. Retrying is guaranteed waste -- nothing about the
+    customer or the bank participates in the refusal, so the same card fails
+    identically forever.
+    """
+    result = classify(LIVE_NOT_PERMITTED)
+    assert result.decline_class is DeclineClass.HARD_NOT_PERMITTED
+    assert result.decline_class.is_hard
+    assert not result.ambiguous
+    assert result.hard_possible
+
+
+def test_the_live_observed_tuple_scores_below_the_retry_floor() -> None:
+    record = make_record(true_class=DeclineClass.HARD_NOT_PERMITTED)
+    assert not score(record, classify(LIVE_NOT_PERMITTED)).recoverable
+
+
+def test_the_live_observed_class_is_never_generated() -> None:
+    """The guard that keeps the sealed held-out result valid.
+
+    HARD_NOT_PERMITTED was added to the taxonomy *after* the held-out split was
+    scored. It carries weight 0.00 on every rail so the simulated population is
+    byte-identical to the one that produced 68.0% [56.0, 78.7]. Give it a
+    non-zero weight and that number silently stops describing the data it claims
+    to describe -- which is why this is a test and not a comment.
+    """
+    from reclaimos.generator import generate
+    from reclaimos.generator.profiles import CLASS_WEIGHTS_BY_METHOD, marginal_class_weights
+
+    assert marginal_class_weights()[DeclineClass.HARD_NOT_PERMITTED] == 0.0
+    for method, weights in CLASS_WEIGHTS_BY_METHOD.items():
+        assert weights[DeclineClass.HARD_NOT_PERMITTED] == 0.0, method
+
+    _, world = generate(600, seed=99)
+    assert all(t.true_class is not DeclineClass.HARD_NOT_PERMITTED for t in world.values())
+
+
+def test_the_sealed_split_hash_has_not_moved() -> None:
+    """The held-out number in EVAL.md describes a specific dataset. If the
+    generator ever produces a different one, the number is stale and must be
+    re-earned, not re-quoted."""
+    import hashlib
+    import tempfile
+    from pathlib import Path
+
+    from reclaimos.generator import build_dataset
+
+    with tempfile.TemporaryDirectory() as tmp:
+        build_dataset(Path(tmp), n=250, seed=42)
+        digest = hashlib.sha256((Path(tmp) / "test.jsonl").read_bytes()).hexdigest()
+
+    assert digest == "001d7c1c3d85286203fbce32ac9103059cc514a8b41a9ca102b5be60b6360cb9", (
+        "the sealed test split no longer reproduces; the held-out result in EVAL.md "
+        "describes data this generator no longer produces"
+    )

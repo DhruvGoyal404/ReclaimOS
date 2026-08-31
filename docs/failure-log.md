@@ -534,3 +534,53 @@ through the same `SEND_PAYMENT_LINK` action the policy engine chooses, real erro
 envelopes, and real signature-verified webhook delivery — and we state plainly
 that it does not prove a live recurring charge. Full detail in
 [live-slice.md](live-slice.md).
+
+---
+
+## 2026-09-01 — modelled issuer declines; the live API sent a business-source pre-auth rejection
+
+**What we modelled.** `domain/decline_codes.py` was written in Phase 0 from
+Razorpay's documented *issuer* decline codes — insufficient funds, do-not-honor,
+card reported stolen, expired instrument. Every entry assumed the refusal came
+from a bank looking at a customer's account.
+
+**What the live API actually sent.** Two real test-mode payments, both:
+
+```
+BAD_REQUEST_ERROR · business · payment_initiation · international_transaction_not_allowed
+```
+
+`source=business`, `step=payment_initiation`. Not an issuer decision at all — a
+**pre-authorisation rejection by merchant configuration**, decided before any bank
+was consulted. International cards are disabled on the account, so the payment was
+refused on the way out.
+
+**Why this is the interesting one.** It is a concrete live instance of the thesis
+the whole project argues. A pre-auth rejection *looks* like an ordinary declined
+charge — same `BAD_REQUEST_ERROR` code, same failed payment, same webhook. A
+retry ladder would spend three attempts on it. But nothing about the customer or
+the bank participates in the refusal, so the same card fails identically forever.
+It is the most non-retryable thing in the taxonomy, and it superficially resembles
+the most retryable.
+
+If it had landed in a soft bucket, the agent would have burned attempts on
+something that can never authorise — the exact waste pattern the headline result
+is built on avoiding.
+
+**What we changed.** Added `DeclineClass.HARD_NOT_PERMITTED`, classified hard, so
+`is_hard` is true and the agent's `wants_charge` gate refuses it before a charge
+is ever proposed. Propensity 0.02, below the retry floor. The subscription is
+still reachable — but only by asking the customer for a different instrument,
+which is the outreach path, and the agent does send exactly one payment link.
+
+**What we were careful not to break.** The class was added *after* the held-out
+split was scored. It carries generation weight **0.00 on every rail**, so the
+simulated population is byte-identical and the sealed test split still hashes to
+`001d7c1c…` — verified, and now asserted by a test that fails if the generator
+ever produces different data than the number in EVAL.md describes.
+
+**What this does not prove.** Both live failures were the same
+international-not-allowed rejection, because that is what the test account's
+configuration produced. The live slice therefore observed **one** class, on two
+envelopes. The issuer-decline classes remain validated by the simulated batch and
+by the documented API shape — not by this slice. Two envelopes is two envelopes.

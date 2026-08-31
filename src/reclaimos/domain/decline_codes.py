@@ -32,6 +32,7 @@ class DeclineClass(StrEnum):
     HARD_RISK_FLAGGED = "HARD_RISK_FLAGGED"
     HARD_DO_NOT_HONOR = "HARD_DO_NOT_HONOR"
     HARD_MANDATE_REVOKED = "HARD_MANDATE_REVOKED"
+    HARD_NOT_PERMITTED = "HARD_NOT_PERMITTED"
     EXPIRY_CARD_EXPIRED = "EXPIRY_CARD_EXPIRED"
     EXPIRY_MANDATE_EXPIRED = "EXPIRY_MANDATE_EXPIRED"
     UNKNOWN = "UNKNOWN"
@@ -153,6 +154,22 @@ DECLINE_CODES: tuple[DeclineCode, ...] = (
         "payment_failed",
         "The payment could not be completed by the bank.",
         DeclineClass.HARD_DO_NOT_HONOR,  # the ambiguous tuple, third owner
+    ),
+    # --- hard: the merchant's own configuration forbids the instrument -----
+    #
+    # Observed live on 2026-09-01, not modelled beforehand. `source` is
+    # "business" and `step` is "payment_initiation": this is a pre-authorisation
+    # rejection by merchant configuration, decided before any issuer is asked.
+    # It is therefore the most non-retryable thing in the taxonomy -- the same
+    # card will be refused identically forever, because nothing about the
+    # customer or the bank is involved in the refusal.
+    DeclineCode(
+        "BAD_REQUEST_ERROR",
+        "business",
+        "payment_initiation",
+        "international_transaction_not_allowed",
+        "International cards are not enabled for this merchant account.",
+        DeclineClass.HARD_NOT_PERMITTED,
     ),
     # --- hard: the customer withdrew consent -------------------------------
     DeclineCode(

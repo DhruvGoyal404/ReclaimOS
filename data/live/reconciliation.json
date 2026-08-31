@@ -1,7 +1,20 @@
 {
   "fields_missing": [],
-  "fields_seen": [],
-  "matched": [],
+  "fields_seen": [
+    "error_code",
+    "error_description",
+    "error_reason",
+    "error_source",
+    "error_step"
+  ],
+  "matched": [
+    [
+      "BAD_REQUEST_ERROR",
+      "business",
+      "payment_initiation",
+      "international_transaction_not_allowed"
+    ]
+  ],
   "modelled_tuples": [
     [
       "BAD_REQUEST_ERROR",
@@ -14,6 +27,12 @@
       "business",
       "payment_authentication",
       "payment_risk_check_failed"
+    ],
+    [
+      "BAD_REQUEST_ERROR",
+      "business",
+      "payment_initiation",
+      "international_transaction_not_allowed"
     ],
     [
       "BAD_REQUEST_ERROR",
@@ -82,9 +101,26 @@
       "issuer_down"
     ]
   ],
-  "notes": [
-    "No failed payment has been captured yet. A payment link paid with a failing test card produces one; see docs/live-slice.md."
+  "notes": [],
+  "observed": [
+    {
+      "error_code": "BAD_REQUEST_ERROR",
+      "error_description": "Your payment could not be completed as this business accepts domestic (Indian) card payments only. Try another payment method.",
+      "error_reason": "international_transaction_not_allowed",
+      "error_source": "business",
+      "error_step": "payment_initiation",
+      "method": "card",
+      "payment_id": "pay_TWUAziepTriXRd"
+    },
+    {
+      "error_code": "BAD_REQUEST_ERROR",
+      "error_description": "Your payment could not be completed as this business accepts domestic (Indian) card payments only. Try another payment method.",
+      "error_reason": "international_transaction_not_allowed",
+      "error_source": "business",
+      "error_step": "payment_initiation",
+      "method": "card",
+      "payment_id": "pay_TWU9ypzqAxV8QC"
+    }
   ],
-  "observed": [],
   "unmodelled": []
 }

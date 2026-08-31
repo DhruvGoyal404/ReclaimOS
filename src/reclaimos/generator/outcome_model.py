@@ -76,6 +76,8 @@ RETRY_BASE: Final[dict[DeclineClass, float]] = {
     DeclineClass.HARD_DO_NOT_HONOR: 0.04,
     DeclineClass.HARD_RISK_FLAGGED: 0.01,
     DeclineClass.HARD_MANDATE_REVOKED: 0.00,
+    # Refused before the issuer is consulted; a retry cannot change the answer.
+    DeclineClass.HARD_NOT_PERMITTED: 0.00,
     DeclineClass.EXPIRY_CARD_EXPIRED: 0.02,
     DeclineClass.EXPIRY_MANDATE_EXPIRED: 0.00,
     DeclineClass.UNKNOWN: 0.35,
@@ -94,6 +96,9 @@ LINK_RECEPTIVITY: Final[dict[DeclineClass, float]] = {
     DeclineClass.HARD_DO_NOT_HONOR: 0.85,
     DeclineClass.HARD_RISK_FLAGGED: 0.75,
     DeclineClass.HARD_MANDATE_REVOKED: 0.25,
+    # The instrument is refused, not the customer's intent: a link lets them
+    # pay with something the merchant does accept.
+    DeclineClass.HARD_NOT_PERMITTED: 0.80,
     DeclineClass.EXPIRY_CARD_EXPIRED: 0.90,
     DeclineClass.EXPIRY_MANDATE_EXPIRED: 0.85,
     DeclineClass.UNKNOWN: 0.70,

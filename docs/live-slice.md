@@ -88,6 +88,45 @@ envelope did not carry.
 **A mismatch here is an asset.** "We modelled X, the API sends Y, we changed Z"
 is a better artefact than a taxonomy that happened to be right.
 
+## What the live slice actually observed — 2026-09-01
+
+Two real failed payments, both carrying the same envelope:
+
+```
+pay_TWUAziepTriXRd   BAD_REQUEST_ERROR · business · payment_initiation · international_transaction_not_allowed
+pay_TWU9ypzqAxV8QC   BAD_REQUEST_ERROR · business · payment_initiation · international_transaction_not_allowed
+```
+
+That tuple was **not** in our taxonomy. We had modelled Razorpay's documented
+*issuer* decline codes; this is a `source=business` **pre-authorisation
+rejection** — merchant configuration refusing the instrument before any bank is
+consulted, because international cards are disabled on the account.
+
+Added as `DeclineClass.HARD_NOT_PERMITTED`, classified **hard / non-retryable**.
+Verified end to end:
+
+```
+class      : HARD_NOT_PERMITTED  (is_hard=True, ambiguous=False)
+propensity : 0.02  recoverable=False
+action     : send_payment_link   rule=agent.contact.hard_decline.hard_not_permitted
+```
+
+Never retried, one payment link so the customer can pay another way. Full
+reasoning in [failure-log.md](failure-log.md).
+
+### The limit of this observation, stated plainly
+
+Both failures were the *same* rejection, because that is what this account's
+configuration produced. **The live slice observed one class across two
+envelopes.** It does not validate the issuer-decline classes — those remain
+supported by the simulated batch and by the documented API shape. Two envelopes
+is two envelopes, and the write-up says so rather than implying broader coverage.
+
+`HARD_NOT_PERMITTED` was added *after* the held-out split was scored, so it
+carries generation weight `0.00` on every rail. The simulated population is
+byte-identical and the sealed split still hashes to `001d7c1c…` — asserted by a
+test, not just checked once.
+
 ## Webhooks (second half of the slice)
 
 Requires a public URL, so a tunnel. Steps, in order:

@@ -56,6 +56,7 @@ AMBIGUITY_PREFERENCE: Final[tuple[DeclineClass, ...]] = (
     DeclineClass.EXPIRY_MANDATE_EXPIRED,
     DeclineClass.HARD_RISK_FLAGGED,
     DeclineClass.HARD_MANDATE_REVOKED,
+    DeclineClass.HARD_NOT_PERMITTED,
     DeclineClass.UNKNOWN,
 )
 
