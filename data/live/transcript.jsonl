@@ -1,4 +1,4 @@
-﻿{"at":"2026-09-01T00:10:51.353547+05:30","method":"GET","path":"/payments","status":200,"ok":true,"request":{"count":1},"response":{"entity":"collection","count":0,"items":[]},"error":"","note":"capability probe"}
+{"at":"2026-09-01T00:10:51.353547+05:30","method":"GET","path":"/payments","status":200,"ok":true,"request":{"count":1},"response":{"entity":"collection","count":0,"items":[]},"error":"","note":"capability probe"}
 {"at":"2026-09-01T00:10:51.931105+05:30","method":"GET","path":"/orders","status":200,"ok":true,"request":{"count":1},"response":{"entity":"collection","count":0,"items":[]},"error":"","note":"capability probe"}
 {"at":"2026-09-01T00:10:52.178517+05:30","method":"GET","path":"/customers","status":200,"ok":true,"request":{"count":1},"response":{"entity":"collection","count":0,"items":[]},"error":"","note":"capability probe"}
 {"at":"2026-09-01T00:10:53.204279+05:30","method":"GET","path":"/payment_links","status":200,"ok":true,"request":{"count":1},"response":{"payment_links":[]},"error":"","note":"capability probe"}
