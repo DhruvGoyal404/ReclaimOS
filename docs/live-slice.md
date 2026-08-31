@@ -1,4 +1,4 @@
-# The live Razorpay test-mode slice
+﻿# The live Razorpay test-mode slice
 
 The 200+ record batch is simulated and always will be — [SIMULATION.md](../SIMULATION.md)
 explains why. This slice exists to prove the *integration* is real: we
@@ -202,6 +202,27 @@ Left open at the end of Phase 2:
   not, the `evt_nodedupe_` path is load-bearing and stays.
 - Does the body carry `created_at` and an entity id on every event type? That is
   what makes digest-based deduplication safe (see `derive_event_id`).
+
+### What the live run actually showed (2026-09-01)
+
+One real delivery arrived through the tunnel — a `payment.failed` event from the
+international-not-allowed payment — signature-verified through `ingest()`,
+returned 200, recorded in `data/live/webhooks.jsonl`:
+
+| metric | value |
+| --- | --- |
+| deliveries | 1 |
+| accepted (signature valid) | 1 |
+| duplicates | 0 |
+| with `X-Razorpay-Event-Id` | 1 (`TWVhmRLB0jTiDx`) |
+| without | 0 |
+
+**Resolution.** The header is present and `ingest()` already prefers it (it only
+derives an id when the header is `None`), so the header is now the confirmed
+primary dedup key. The `evt_nodedupe_` fallback is **kept, not retired**: n=1 on a
+single event type is not evidence the header is present on every event type
+Razorpay sends. Preferring the header while keeping the fallback is the honest
+reading of one observation. See failure-log entry #6.
 
 ## What this live slice proves — and what it does not
 

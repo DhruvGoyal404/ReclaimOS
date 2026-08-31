@@ -584,3 +584,68 @@ international-not-allowed rejection, because that is what the test account's
 configuration produced. The live slice therefore observed **one** class, on two
 envelopes. The issuer-decline classes remain validated by the simulated batch and
 by the documented API shape — not by this slice. Two envelopes is two envelopes.
+
+## 2026-09-01 — the event-id header is present, but n=1 does not license retiring the fallback
+
+**The open question.** Phase 2 left one residual (see *"the webhook envelope is
+
+modelled, not observed"*): Razorpay''s docs say deliveries carry
+
+`X-Razorpay-Event-Id`, but we had never seen one. `derive_event_id` was built to
+
+fail safe without it — prefer the header when present, and when it is absent fall
+
+back to a body digest, deduplicating only when the body is distinguishing and
+
+otherwise emitting a visible `evt_nodedupe_` id. The question was whether the
+
+header actually arrives, which would make that fallback dead weight.
+
+**What the live slice showed.** One real delivery arrived through the ngrok
+
+tunnel — a `payment.failed` event triggered by the international-not-allowed
+
+payment from entry #5 — signature-verified through `ingest()`, returned 200, and
+
+it **did** carry the header:
+
+deliveries received: 1
+with X-Razorpay-Event-Id: 1 (id: TWVhmRLB0jTiDx)
+without: 0
+
+
+
+So the header is real, and the code already does the right thing with it:
+
+`ingest()` uses the passed-in `event_id` as the dedup key and only derives when it
+
+is `None`. The header wins when present, exactly as the docstring claims. No code
+
+change was needed — this entry is the evidence that the header path is exercised,
+
+not just written.
+
+**The mistake we did not make.** The receiver''s own summary printed an action:
+
+*"CONSISTENT — retire evt_nodedupe_ fallback."* We did not. One delivery of one
+
+event type is evidence that the header **can** be used, not that it is present on
+
+**every** event type Razorpay sends (payment.*, refund.*, settlement.*, and older
+
+deliveries may differ). Deleting a load-bearing defensive path on a single
+
+observation is the "one match proves nothing" trap, one level down from the eval
+
+discipline — and the fallback costs nothing to keep. The honest position is:
+
+**prefer the header (already the case), keep the fallback for the event types we
+
+have not observed.**
+
+**What this does not prove.** n=1, one event type, one account. The header''s
+
+universal presence is not established and we do not claim it. The fallback stays,
+
+and stays tested.
+
