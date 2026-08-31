@@ -507,6 +507,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "requests" },
     { name = "rich" },
     { name = "typer" },
     { name = "tzdata" },
@@ -535,6 +536,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "razorpay", marker = "extra == 'live'", specifier = ">=1.4" },
+    { name = "requests", specifier = ">=2.34.2" },
     { name = "rich", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "typer", specifier = ">=0.12" },

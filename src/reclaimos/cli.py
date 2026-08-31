@@ -534,5 +534,96 @@ def live_transcript() -> None:
     console.print(f"[dim]{TRANSCRIPT}[/]")
 
 
+@live_app.command("webhook")
+def live_webhook(
+    port: Annotated[int, typer.Option("--port", help="Port to listen on.")] = 8000,
+    secret: Annotated[
+        str | None,
+        typer.Option("--secret", help="Webhook secret (defaults to RAZORPAY_WEBHOOK_SECRET)."),
+    ] = None,
+    database: Annotated[str | None, typer.Option("--database")] = None,
+) -> None:
+    """Start the webhook receiver for the live test-mode slice.
+
+    Runs the real ``ingest()`` pipeline — signature verification, parsing, event
+    store — against live Razorpay webhook deliveries. Captures every header to
+    settle the open question about ``X-Razorpay-Event-Id`` presence.
+
+    Prints a summary on Ctrl+C. See ``docs/live-slice.md`` for the full setup:
+    ngrok tunnel, dashboard configuration, and what events to subscribe to.
+    """
+    from reclaimos.live.webhook_receiver import run_receiver
+
+    console.print("[bold]Starting webhook receiver[/]")
+    console.print(f"  listening on: [cyan]http://0.0.0.0:{port}[/]")
+    console.print("  webhook path: [cyan]POST /webhook/razorpay[/]")
+    console.print("  health check: [cyan]GET /health[/]")
+    console.print("[dim]Ctrl+C to stop and print session summary[/]")
+    run_receiver(port=port, webhook_secret=secret, db_url=database)
+
+
+@live_app.command("webhook-report")
+def live_webhook_report() -> None:
+    """Summarise webhook deliveries from the last receiver session.
+
+    Reads ``data/live/webhooks.jsonl`` and reports whether ``X-Razorpay-Event-Id``
+    was consistently present — settling the open question from failure-log entry #2.
+    """
+    from reclaimos.live.webhook_receiver import WEBHOOK_LOG, WebhookDelivery
+
+    if not WEBHOOK_LOG.exists():
+        console.print("[yellow]no webhook deliveries recorded yet[/] — run: reclaimos live webhook")
+        raise typer.Exit(code=1)
+
+    deliveries: list[WebhookDelivery] = []
+    with WEBHOOK_LOG.open(encoding="utf-8") as fh:
+        for line in fh:
+            if line.strip():
+                deliveries.append(WebhookDelivery.model_validate_json(line))
+
+    if not deliveries:
+        console.print("[yellow]webhook log is empty[/]")
+        raise typer.Exit(code=1)
+
+    total = len(deliveries)
+    with_id = sum(1 for d in deliveries if d.event_id_header)
+    without_id = total - with_id
+    accepted = sum(1 for d in deliveries if d.ingest_accepted)
+    duplicates = sum(1 for d in deliveries if d.ingest_duplicate)
+
+    table = Table(title=f"Webhook deliveries · {total} total", header_style="bold")
+    table.add_column("metric")
+    table.add_column("value", justify="right")
+    table.add_row("total deliveries", str(total))
+    table.add_row("accepted (signature valid)", str(accepted))
+    table.add_row("duplicates", str(duplicates))
+    table.add_row("with X-Razorpay-Event-Id", str(with_id))
+    table.add_row("without X-Razorpay-Event-Id", str(without_id))
+    console.print(table)
+
+    if with_id == total:
+        console.print(
+            "[bold green]CONSISTENT[/] — event-id header present on every delivery. "
+            "Action: harden derivation to use it; retire evt_nodedupe_ fallback."
+        )
+    elif without_id == total:
+        console.print(
+            "[bold yellow]ABSENT[/] — event-id header missing on every delivery. "
+            "The evt_nodedupe_ fallback is load-bearing."
+        )
+    else:
+        console.print(
+            "[bold yellow]INCONSISTENT[/] — event-id header present on some but not all. "
+            "This is a sixth honest finding for the failure log."
+        )
+
+    if deliveries:
+        ids_seen = [d.event_id_header for d in deliveries if d.event_id_header]
+        if ids_seen:
+            console.print(f"[dim]event ids: {ids_seen}[/]")
+
+    console.print(f"[dim]{WEBHOOK_LOG}[/]")
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

@@ -12,6 +12,7 @@ dependencies = [
     "typer>=0.12",
     "rich>=13.7",
     "tzdata>=2024.1",  # Windows has no system tz database; zoneinfo needs this
+    "requests>=2.34.2",
 ]
 
 [project.optional-dependencies]

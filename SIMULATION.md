@@ -76,3 +76,30 @@ not have any.
   hand-built model captures.
 - The live slice proves plumbing, not economics. It is not evidence that the
   simulated recovery rates are right.
+
+## What the test account allowed vs what remains simulation-validated
+
+The Razorpay Subscriptions API is gated behind full account (KYC) activation.
+This test account deliberately has not done KYC, so `/plans` and `/subscriptions`
+return 401. Confirmed from three dashboard tabs — not a fixable configuration
+issue.
+
+**What the live slice covers**, on this account:
+
+- Real authentication (basic auth, test key accepted)
+- Real customer, order and payment-link creation via the API
+- Real error envelopes from failed payments (`BAD_REQUEST_ERROR` / `business` /
+  `payment_initiation` / `international_transaction_not_allowed` — a class our
+  taxonomy did not contain, now added as `HARD_NOT_PERMITTED`)
+- Real signature-verified webhook delivery through the same `ingest()` pipeline
+- Taxonomy reconciliation against live data (surfaced failure-log entry #5)
+
+**What remains simulation-validated only:**
+
+- Recurring charge → fail → retry/contact → recover: the full subscription
+  recovery loop. This is the 68.0% [56.0, 78.7] headline result, validated by a
+  sealed simulated batch of 250 records. It never depended on live subscriptions.
+
+The boundary is drawn here and in [`docs/live-slice.md`](docs/live-slice.md).
+Every rupee figure in EVAL.md is labelled simulated INR; the live slice is
+labelled proof-of-integration. Neither pretends to be the other.

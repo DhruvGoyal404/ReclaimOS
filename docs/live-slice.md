@@ -34,29 +34,25 @@ uv run reclaimos live transcript   # summarise what has been recorded
 | `/customers` | 200 | reachable |
 | `/payment_links` | 200 | reachable |
 | `/settlements` | 200 | reachable |
-| `/plans` | **401** | **not provisioned** |
-| `/subscriptions` | **401** | **not provisioned** |
+| `/plans` | **401** | **not provisioned — confirmed KYC-gated** |
+| `/subscriptions` | **401** | **not provisioned — confirmed KYC-gated** |
 
 The same key returns 200 on five endpoints and 401 on two, so this is not an
 authentication problem. Note the response shape: `{"error":"Unauthorized"}` — a
 bare string, not Razorpay's usual `{"error":{"code":…,"description":…}}` envelope.
 That is the shape returned for a product the account is not provisioned for.
 
+### Subscriptions is unavailable — confirmed, not worked around
+
+Verified from three dashboard tabs: Plans and Subscriptions both show "Something
+went wrong" (the same 401 the API returns), and Settings shows the "Activate
+your account" banner. The Subscriptions API is gated behind full account (KYC)
+activation, which this test account deliberately has not done.
+
 **Consequence:** the Subscriptions "Charge this now" success/failure simulation —
-the mechanism the whole recovery loop was designed around — is unavailable until
-Subscriptions is enabled on the account. This is recorded in
-[failure-log.md](failure-log.md) rather than worked around quietly.
-
-### To enable Subscriptions (dashboard, manual)
-
-1. Razorpay Dashboard → make sure you are in **Test Mode** (toggle, top left).
-2. **Subscriptions** in the left nav. If it is absent, go to
-   **Settings → Configuration** or the **Apps / Products** page and request
-   *Subscriptions*.
-3. Subscriptions is a gated product on some accounts and may require business
-   activation. If it cannot be enabled on a test account, the slice proceeds
-   without it — see the fallback below, which is not a workaround but a smaller
-   true claim.
+the mechanism the whole recovery loop was designed around — is unavailable on
+this account. This is recorded in [failure-log.md](failure-log.md) and stated
+plainly here rather than worked around or faked.
 
 ## Getting a real failed payment
 
@@ -129,26 +125,77 @@ test, not just checked once.
 
 ## Webhooks (second half of the slice)
 
-Requires a public URL, so a tunnel. Steps, in order:
+Requires a public URL, so a tunnel.
 
-1. Start the receiver locally (port 8000).
-2. Tunnel it:
+### Setup — exact steps
+
+1. **Set the webhook secret in `.env`:**
+
+   Choose any string as a secret. Add it to `.env` (gitignored):
+
+   ```
+   RAZORPAY_WEBHOOK_SECRET=your_chosen_secret_here
+   ```
+
+2. **Start the receiver:**
+
+   ```bash
+   uv run reclaimos live webhook
+   ```
+
+   Listens on `http://0.0.0.0:8000`. Webhook path: `POST /webhook/razorpay`.
+   Health check: `GET /health`.
+
+3. **Tunnel it:**
+
+   In a second terminal:
 
    ```bash
    ngrok http 8000
    ```
 
-   Copy the `https://….ngrok-free.app` forwarding URL.
-3. Razorpay Dashboard → **Settings → Webhooks → Add New Webhook** (in Test Mode):
-   - **Webhook URL**: `https://….ngrok-free.app/webhook/razorpay`
-   - **Secret**: choose one, and put the same value in `.env` as
-     `RAZORPAY_WEBHOOK_SECRET`
-   - **Active Events**: `payment.failed`, `payment.captured`,
-     `payment_link.paid`, and the `subscription.*` events if Subscriptions is
-     enabled.
-4. Trigger a payment as above and watch the delivery arrive.
+   Copy the `https://xxxx-xx-xx.ngrok-free.app` forwarding URL.
 
-What we are specifically checking, left open at the end of Phase 2:
+4. **Configure the Razorpay dashboard:**
+
+   Dashboard → make sure you are in **Test Mode** → **Settings → Webhooks →
+   Add New Webhook**:
+
+   - **Webhook URL**: `https://xxxx-xx-xx.ngrok-free.app/webhook/razorpay`
+   - **Secret**: the exact same string you put in `.env`
+   - **Active Events**: check these:
+     - `payment.authorized`
+     - `payment.captured`
+     - `payment.failed`
+     - `payment_link.paid`
+     - `payment_link.cancelled`
+     - `payment_link.expired`
+
+   (No `subscription.*` events — the API is not provisioned.)
+
+5. **Trigger a delivery:**
+
+   Use the existing payment-link flow:
+
+   ```bash
+   uv run reclaimos live seed
+   ```
+
+   Open the `short_url` it prints in a browser. Pay with a Razorpay test card
+   (success card or failure card — both produce webhook deliveries). Watch the
+   receiver log the arrival.
+
+6. **Review the results:**
+
+   Ctrl+C the receiver to print the session summary, or run:
+
+   ```bash
+   uv run reclaimos live webhook-report
+   ```
+
+### What we are specifically checking
+
+Left open at the end of Phase 2:
 
 - Is **`X-Razorpay-Event-Id` present on every delivery?** If it is, the
   body-digest fallback in `ingest/webhook.py` stops mattering entirely. If it is
@@ -156,13 +203,18 @@ What we are specifically checking, left open at the end of Phase 2:
 - Does the body carry `created_at` and an entity id on every event type? That is
   what makes digest-based deduplication safe (see `derive_event_id`).
 
-## If Subscriptions cannot be enabled
+## What this live slice proves — and what it does not
 
-The slice then proves: real authentication, real customer and order creation,
-**a real payment link created through the same `SEND_PAYMENT_LINK` action the
-policy engine chooses**, real error envelopes, and real signature-verified
-webhook delivery.
+The slice proves: real authentication, real customer and order creation, **a real
+payment link created through the same `SEND_PAYMENT_LINK` action the policy
+engine chooses**, real error envelopes, real taxonomy reconciliation (which
+surfaced failure-log entry #5 — a business-source pre-auth rejection we had not
+modelled), and real signature-verified webhook delivery through the same
+`ingest()` pipeline the eval harness uses.
 
-It would not prove a live recurring charge. We would say exactly that, in
-SIMULATION.md and in the pitch, and the simulated batch would remain the primary
-result — which it always was.
+**It does not prove a live recurring charge.** The Subscriptions API is
+KYC-gated and unavailable on this account ([confirmed above](#subscriptions-is-unavailable--confirmed-not-worked-around)).
+The recurring-recovery logic — 68.0% recovery, +30.7pp over best baseline, zero
+mandate violations — is validated by the sealed simulated batch, which never
+depended on live subscriptions. [SIMULATION.md](../SIMULATION.md) draws the
+line; [EVAL.md](../EVAL.md) labels every rupee figure as simulated INR.
