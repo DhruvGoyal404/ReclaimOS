@@ -1,4 +1,4 @@
-{
+﻿{
   "fields_missing": [],
   "fields_seen": [
     "error_code",
@@ -110,7 +110,7 @@
       "error_source": "business",
       "error_step": "payment_initiation",
       "method": "card",
-      "payment_id": "pay_TWUAziepTriXRd"
+      "payment_id": "pay_XXXXXXXXXXXXXX"
     },
     {
       "error_code": "BAD_REQUEST_ERROR",
@@ -119,7 +119,7 @@
       "error_source": "business",
       "error_step": "payment_initiation",
       "method": "card",
-      "payment_id": "pay_TWU9ypzqAxV8QC"
+      "payment_id": "pay_YYYYYYYYYYYYYY"
     }
   ],
   "unmodelled": []
