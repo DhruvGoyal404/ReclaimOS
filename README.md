@@ -1,4 +1,4 @@
-# ReclaimOS
+﻿# ReclaimOS
 
 **An autonomous, fully-auditable agent that recovers revenue lost to failed
 recurring payments — where the LLM is never allowed to move money.**
@@ -59,6 +59,26 @@ explanation, because an unlabelled fallback is a small lie told at scale.
 
 See [docs/architecture.md](docs/architecture.md) — in the diagram, no dashed line
 ever enters a decision node.
+
+## Diagrams
+
+**Architecture — one loop, and the line that matters.** The LLM connects to
+`DIAGNOSE` with a dashed edge and nothing else: it reads, it never acts. No solid
+edge from the model ever reaches a decision or a money action.
+
+![ReclaimOS architecture: webhook, diagnose, decide, execute, ledger, with the LLM reading into diagnose only and a human-review gate on decide and execute](src/reclaimos/diagrams/architecture.png)
+
+**Domain / class relationships — why an unauthorised charge cannot be built.** A
+`ChargeRequest` is constructible only with a `MandateToken`, and a `MandateToken`
+comes only from `Mandate.authorize()`. The executor appends to the hash-chained
+ledger.
+
+![ReclaimOS class diagram: Mandate authorize() to MandateToken, required by ChargeRequest, execute() through Executor, appends to LedgerEntry, Decision recorded to LedgerEntry](src/reclaimos/diagrams/class-diagram.png)
+
+**Use cases.** The merchant recovers revenue; a reviewer only ever sees the
+escalation path.
+
+![ReclaimOS use-case diagram: MERCHANT actor connected to detect failed payment and recover money; REVIEWER actor connected to escalate to human; five use cases inside the ReclaimOS boundary](src/reclaimos/diagrams/use-case.png)
 
 ### What we deliberately did *not* use AI for
 
@@ -159,7 +179,7 @@ Needs Python 3.12 (or just [`uv`](https://docs.astral.sh/uv/), which fetches it)
 **No API keys, no Docker, no `.env`** — the full evaluation runs on a clean clone.
 
 ```bash
-git clone https://github.com/DhruvGoyal404/reclaimos
+git clone https://github.com/DhruvGoyal404/ReclaimOS
 cd reclaimos
 
 uv sync --extra dev
